@@ -88,6 +88,7 @@ public class QuorumPeerMain {
         QuorumPeerMain main = new QuorumPeerMain();
         try {
             // Leader 选举函数入口
+            // >>>>>>>>>
             main.initializeAndRun(args);
         } catch (IllegalArgumentException e) {
             LOG.error("Invalid arguments, exiting abnormally", e);
@@ -133,7 +134,9 @@ public class QuorumPeerMain {
             config.getPurgeInterval());
         purgeMgr.start();
 
+        // 判断是standalone模式还是集群模式
         if (args.length == 1 && config.isDistributed()) {
+            // >>>>>>>>>
             runFromConfig(config);
         } else {
             LOG.warn("Either no config or no quorum defined in config, running in standalone mode");
@@ -163,6 +166,7 @@ public class QuorumPeerMain {
             ServerCnxnFactory cnxnFactory = null;
             ServerCnxnFactory secureCnxnFactory = null;
 
+            // 为客户端提供读写的server，也就是2181这个端口的访问功能
             if (config.getClientPortAddress() != null) {
                 cnxnFactory = ServerCnxnFactory.createFactory();
                 cnxnFactory.configure(config.getClientPortAddress(), config.getMaxClientCnxns(), config.getClientPortListenBacklog(), false);
@@ -173,6 +177,7 @@ public class QuorumPeerMain {
                 secureCnxnFactory.configure(config.getSecureClientPortAddress(), config.getMaxClientCnxns(), config.getClientPortListenBacklog(), true);
             }
 
+            // zk的逻辑主线程，负责选举投票
             quorumPeer = getQuorumPeer();
             quorumPeer.setTxnFactory(new FileTxnSnapLog(config.getDataLogDir(), config.getDataDir()));
             quorumPeer.enableLocalSessions(config.areLocalSessionsEnabled());
@@ -225,6 +230,8 @@ public class QuorumPeerMain {
                 quorumPeer.setJvmPauseMonitor(new JvmPauseMonitor(config));
             }
 
+            // 启动主线程
+            // >>>>>>>>>
             quorumPeer.start();
             ZKAuditProvider.addZKStartStopAuditLog();
             quorumPeer.join();
