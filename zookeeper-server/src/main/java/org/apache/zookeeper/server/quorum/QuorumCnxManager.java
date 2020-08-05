@@ -157,12 +157,14 @@ public class QuorumCnxManager {
      * Mapping from Peer to Thread number
      */
     final ConcurrentHashMap<Long, SendWorker> senderWorkerMap;
+    // key=serverId(myid)   value = 保存着当前服务器向其他服务器发送消息的队列
     final ConcurrentHashMap<Long, BlockingQueue<ByteBuffer>> queueSendMap;
     final ConcurrentHashMap<Long, ByteBuffer> lastMessageSent;
 
     /*
      * Reception queue
      */
+    // 接收到的所有数据都在这个队列中
     public final BlockingQueue<Message> recvQueue;
 
     /*
@@ -1064,10 +1066,12 @@ public class QuorumCnxManager {
 
                 while ((!shutdown) && (portBindMaxRetry == 0 || numRetries < portBindMaxRetry)) {
                     try {
+                        // 创建serversocket
                         serverSocket = createNewServerSocket();
                         LOG.info("{} is accepting connections now, my election bind port: {}", QuorumCnxManager.this.mySid, address.toString());
                         while (!shutdown) {
                             try {
+                                // 阻塞接受其他的服务器发起连接
                                 client = serverSocket.accept();
                                 setSockOpts(client);
                                 LOG.info("Received connection request from {}", client.getRemoteSocketAddress());
@@ -1076,7 +1080,10 @@ public class QuorumCnxManager {
                                 // enabled. This is required because sasl server
                                 // authentication process may take few seconds to finish,
                                 // this may delay next peer connection requests.
+                                // 如果启用了仲裁SASL身份验证，则异步接收和处理连接请求
+                                // 这是必需的，因为sasl服务器身份验证过程可能需要几秒钟才能完成,这可能会延迟下一个对等连接请求
                                 if (quorumSaslAuthEnabled) {
+                                    // 异步接受一个连接
                                     receiveConnectionAsync(client);
                                 } else {
                                     receiveConnection(client);
@@ -1268,8 +1275,10 @@ public class QuorumCnxManager {
 
                     ByteBuffer b = null;
                     try {
+                        // 根据sid取出了当前节点对应的队列
                         BlockingQueue<ByteBuffer> bq = queueSendMap.get(sid);
                         if (bq != null) {
+                            // 将bq,添加进sendQueue
                             b = pollSendQueue(bq, 1000, TimeUnit.MILLISECONDS);
                         } else {
                             LOG.error("No queue of incoming messages for server {}", sid);
@@ -1278,6 +1287,7 @@ public class QuorumCnxManager {
 
                         if (b != null) {
                             lastMessageSent.put(sid, b);
+                            // 发送
                             send(b);
                         }
                     } catch (InterruptedException e) {
@@ -1392,6 +1402,7 @@ public class QuorumCnxManager {
                      */
                     final byte[] msgArray = new byte[length];
                     din.readFully(msgArray, 0, length);
+                    // 添加到RecvQueue中
                     addToRecvQueue(new Message(ByteBuffer.wrap(msgArray), sid));
                 }
             } catch (Exception e) {

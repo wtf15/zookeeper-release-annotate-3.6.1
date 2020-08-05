@@ -760,6 +760,7 @@ public class Leader extends LearnerMaster {
                         break;
                     }
 
+                    // 当不满足半数检验时,leader直接挂掉自己,最终将集群中所有节点的状态改成LOOKING,重新选举
                     if (!tickSkip && !syncedAckSet.hasAllQuorums()) {
                         // Lost quorum of last committed and/or last proposed
                         // config, set shutdown flag

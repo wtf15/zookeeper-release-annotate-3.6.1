@@ -1067,6 +1067,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
         return quorumStats;
     }
 
+    // 进入了 QuorumPeer（意为仲裁人数）类中，可以把这个类理解成集群中的某一个点
     @Override
     public synchronized void start() {
         if (!getView().containsKey(myid)) {
@@ -1075,6 +1076,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
         // 恢复DB，主要是从本地文件中恢复数据，以及获取最新的 zxid
         // >>>>>>>>>
         loadDataBase();
+        // 启动上下文的这个工厂，他是个线程类, 当前的节点可以接受来自客户端(java代码,或者控制台)发送过来的连接请求
         startServerCnxnFactory();
         try {
             adminServer.start();
@@ -1082,12 +1084,12 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
             LOG.warn("Problem starting AdminServer", e);
             System.out.println(e);
         }
-        // leader选举开始
+        // leader选举开始，但是其实他是初始化了一系列的辅助类,用来辅助leader的选举,并非真正在选举
         // >>>>>>>>>
         startLeaderElection();
         startJvmPauseMonitor();
         // >>>>>>>>>
-        // 最终运行 QuorumPeer 的 run 方法
+        // 确定服务器的角色, 当前类,quorumPeer继承了ZKThread,它本身就是一个线程类，最终运行 QuorumPeer 的 run 方法
         super.start();
     }
 
@@ -1156,6 +1158,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
     public synchronized void startLeaderElection() {
         try {
             // 如果当前节点的状态是LOOKING，则投票给自己
+            // 创建了一个封装了投票结果对象，包含myid 最大的zxid 当前的epoch
             if (getPeerState() == ServerState.LOOKING) {
                 currentVote = new Vote(myid, getLastLoggedZxid(), getCurrentEpoch());
             }
@@ -1165,7 +1168,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
             throw re;
         }
 
-        // 根据配置获取选举算法
+        // 创建一个leader选举的算法
         // >>>>>>>>>
         this.electionAlg = createElectionAlgorithm(electionType);
     }
@@ -1287,7 +1290,11 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
         case 2:
             throw new UnsupportedOperationException("Election Algorithm 2 is not supported.");
         case 3:
-            // Leader选举IO负责类
+            // 建CnxnManager 上下文的管理器
+            // 这个类有着举足轻重的作用,它是集群中全体节点共享辅助类, 那到底有什么作用呢? 我不卖关子直接说,
+            // 因为leader的选举是通过投票决议出来的,既然要相互投票,那集群中的各个点就得两两之间建立连接,
+            // 这个QuorumCnxManager就负责维护集群中的各个点的通信
+            // >>>>>>>>> QuorumCnxManager
             QuorumCnxManager qcm = createCnxnManager();
             QuorumCnxManager oldQcm = qcmRef.getAndSet(qcm);
             if (oldQcm != null) {
@@ -1297,8 +1304,9 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
             QuorumCnxManager.Listener listener = qcm.listener;
             if (listener != null) {
                 // 启动已绑定端口的选举线程，等待集群中其他机器连接
+                // Listenner的启动标记着集群中的各个节点之间有了两两之间建立通信能力
                 listener.start();
-                // 基于TCP的选举算法
+                // 实例化领导者选举的算法
                 // >>>>>>>>>
                 FastLeaderElection fle = new FastLeaderElection(this, qcm);
                 // >>>>>>>>>
@@ -1387,7 +1395,8 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
             while (running) {
                 // 判断当前节点的状态
                 switch (getPeerState()) {
-                // 如果是LOOKING，则进入选举流程
+                // 如果是LOOKING，则进入选举流程，一开始在程序启动的阶段,所有的节点的默认值都是Looking
+                // 在这个分之中会进行真正的leader选举工作
                 case LOOKING:
                     LOG.info("LOOKING");
                     ServerMetrics.getMetrics().LOOKING_COUNT.add(1);
@@ -1396,6 +1405,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
                         LOG.info("Attempting to start ReadOnlyZooKeeperServer");
 
                         // Create read-only server but don't start it immediately
+                        // 创建了一个只读的server但是不着急立即启动它
                         final ReadOnlyZooKeeperServer roZk = new ReadOnlyZooKeeperServer(logFactory, this, this.zkDb);
 
                         // Instead of starting roZk immediately, wait some grace
@@ -1404,12 +1414,15 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
                         // Thread is used here because otherwise it would require
                         // changes in each of election strategy classes which is
                         // unnecessary code coupling.
+                        // 为了立即启动roZK ，在我们决定分区之前先等一会
+                        // 这里新开启一条线程,避免每一个选举策略类上有不同的改变 而造成的代码的耦合
                         Thread roZkMgr = new Thread() {
                             public void run() {
                                 try {
                                     // lower-bound grace period to 2 secs
                                     sleep(Math.max(2000, tickTime));
                                     if (ServerState.LOOKING.equals(getPeerState())) {
+                                        // 启动上面那个只读的Server
                                         roZk.startup();
                                     }
                                 } catch (InterruptedException e) {
@@ -1429,6 +1442,8 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
                             // 此处通过策略模式决定当前有哪个哪个选举算法来进行Leader选举
                             // >>>>>>>>> lookForLeader
                             setCurrentVote(makeLEStrategy().lookForLeader());
+                            // lookForLeader()执行后，经过如上的判断各个节点的就可以选举出不同的角色,再次回到QuorumPeer.java的run()中进行循环时,
+                            // 不再会进入case LOOKING:代码块了,而是按照自己不同的角色各司其职,完成不同的初始化启动
                         } catch (Exception e) {
                             LOG.warn("Unexpected exception", e);
                             setPeerState(ServerState.LOOKING);
@@ -1472,6 +1487,10 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
                     }
                     break;
                 case FOLLOWING:
+                    // 集群正常启动后,leader因故障挂掉了,选举新Leader
+                    // leader虽然挂了,但是角色为Follower的server依然会去执行QuorumPeer.java的run()方法中的无限while循环,
+                    // 当它执行follower.followLeader();方法时找不到leader,就会出异常,最终执行finally代码块中的逻辑,
+                    // 可以看到它修改了自己的状态为looking,进而重新选举leader
                     try {
                         LOG.info("FOLLOWING");
                         setFollower(makeFollower(logFactory));
@@ -1485,9 +1504,14 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
                     }
                     break;
                 case LEADING:
+                    // 集群中的Follower数量不足以通过半数检验,Leader会挂掉自己,然后选举新leader
+                    // 假设集群中2台Follower,1台leader,那么当挂掉一台Follower时,剩下1台Follower无法满足过半检查机制
+                    // 因此leader直接挂掉自己,最终将集群中所有节点的状态改成LOOKING,重新选举
+                    // leader每次都进入case LEADING:去执行leader.lead()
                     LOG.info("LEADING");
                     try {
                         setLeader(makeLeader(logFactory));
+                        // >>>>>>>>>
                         leader.lead();
                         setLeader(null);
                     } catch (Exception e) {
