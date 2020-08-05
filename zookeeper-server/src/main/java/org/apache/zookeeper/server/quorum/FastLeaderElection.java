@@ -552,7 +552,7 @@ public class FastLeaderElection implements Election {
             // wsThread 和 wrThread 的初始化动作在FastLeaderElection 的 starter 方法里面进行，
             // 这里面有两个内部类，一个是 WorkerSender，一个是 WorkerReceiver， 负责发送投票信息和接收投票信息
 
-            // 启动业务层发送线程，将洗哦阿西发送给IO负责类QuorumCnxManager
+            // 启动业务层发送线程，将消息发送给IO负责类QuorumCnxManager
             this.wsThread.start();
             // 启动业务接收线程，从IO负责类QuorumCnxManager接收消息
             this.wrThread.start();
