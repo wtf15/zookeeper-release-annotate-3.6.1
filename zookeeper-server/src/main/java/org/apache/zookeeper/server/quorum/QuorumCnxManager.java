@@ -1035,6 +1035,7 @@ public class QuorumCnxManager {
             public void run() {
                 try {
                     Thread.currentThread().setName("ListenerHandler-" + address);
+                    // >>>>>>>>>
                     acceptConnections();
                     try {
                         close();

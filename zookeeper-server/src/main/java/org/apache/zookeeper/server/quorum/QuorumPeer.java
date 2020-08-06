@@ -1304,7 +1304,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
             QuorumCnxManager.Listener listener = qcm.listener;
             if (listener != null) {
                 // 启动已绑定端口的选举线程，等待集群中其他机器连接
-                // Listenner的启动标记着集群中的各个节点之间有了两两之间建立通信能力
+                // Listener的启动标记着集群中的各个节点之间有了两两之间建立通信能力
                 listener.start();
                 // 实例化领导者选举的算法
                 // >>>>>>>>>
