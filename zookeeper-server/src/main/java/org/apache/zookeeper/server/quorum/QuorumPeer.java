@@ -1442,7 +1442,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
                             // 此处通过策略模式决定当前有哪个哪个选举算法来进行Leader选举
                             // >>>>>>>>> lookForLeader
                             setCurrentVote(makeLEStrategy().lookForLeader());
-                            // lookForLeader()执行后，经过如上的判断各个节点的就可以选举出不同的角色,再次回到QuorumPeer.java的run()中进行循环时,
+                            // lookForLeader()执行后，经过如上的判断各个节点就可以选举出不同的角色,再次回到QuorumPeer.java的run()中进行循环时,
                             // 不再会进入case LOOKING:代码块了,而是按照自己不同的角色各司其职,完成不同的初始化启动
                         } catch (Exception e) {
                             LOG.warn("Unexpected exception", e);

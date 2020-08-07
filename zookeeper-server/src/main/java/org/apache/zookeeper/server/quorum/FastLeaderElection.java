@@ -1007,7 +1007,7 @@ public class FastLeaderElection implements Election {
                  * Otherwise processes new notification.
                  */
                 if (n == null) {
-                    // 如果空间的情况下，消息发完了，继续发送，一直到选出leader为止
+                    // 如果空的情况下，消息发完了，继续发送，一直到选出leader为止
                     if (manager.haveDelivered()) {
                         sendNotifications();
                     } else {
@@ -1043,13 +1043,13 @@ public class FastLeaderElection implements Election {
                         // 维护着一个时钟,标记这是第几次投票了logicalclock他是AutomicLong类型的变量,他有什么用呢?
                         // 通过下面的代码可以看到如下的逻辑,就是当自己的时钟比当前接收到投票的时钟小时,
                         // 说明自己可能因为其他原因错过了某次投票,所以更新自己的时钟,重新判断投自己还是投别人,
-                        // 同理,如果接收到的投票的时钟小于自己当前的时钟,说明这个票是没有意义的,直接丢弃不理会
+                        // 同理,如果自己当前的时钟大于接收到的投票的时钟时,说明这个票是没有意义的,直接丢弃不理会
                         if (n.electionEpoch > logicalclock.get()) {
                             // 将自己的时钟调整为更新的时间
                             logicalclock.set(n.electionEpoch);
                             // 清空自己的投票箱
                             recvset.clear();
-                            // 检查收到的这个消息是否可以胜出，一次比较epoch、zxid、myid
+                            // 检查收到的这个消息是否可以胜出，依次比较epoch、zxid、myid
                             // 用别人的信息和自己的信息对比,选出一个更适合当leader的,如果还是自己适合,不作为, 对方适合,修改投票,投对方
                             // >>>>>>>>>
                             if (totalOrderPredicate(n.leader, n.zxid, n.peerEpoch, getInitId(), getInitLastLoggedZxid(), getPeerEpoch())) {
