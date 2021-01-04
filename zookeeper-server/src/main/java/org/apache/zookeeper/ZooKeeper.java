@@ -1013,10 +1013,13 @@ public class ZooKeeper implements AutoCloseable {
         }
         this.clientConfig = clientConfig;
         watchManager = defaultWatchManager();
+        // 在这里将 watcher 设置到 ZKWatchManager
         watchManager.defaultWatcher = watcher;
         ConnectStringParser connectStringParser = new ConnectStringParser(connectString);
         hostProvider = aHostProvider;
 
+        // 初始化了 ClientCnxn，并且调用 cnxn.start() 方法
+        // >>>>>>>>>
         cnxn = createConnection(
             connectStringParser.getChrootPath(),
             hostProvider,
@@ -1025,6 +1028,8 @@ public class ZooKeeper implements AutoCloseable {
             watchManager,
             getClientCnxnSocket(),
             canBeReadOnly);
+
+        // >>>>>>>>>
         cnxn.start();
     }
 
@@ -1037,6 +1042,7 @@ public class ZooKeeper implements AutoCloseable {
         ClientWatchManager watcher,
         ClientCnxnSocket clientCnxnSocket,
         boolean canBeReadOnly) throws IOException {
+        // >>>>>>>>>
         return new ClientCnxn(
             chrootPath,
             hostProvider,
@@ -2236,8 +2242,11 @@ public class ZooKeeper implements AutoCloseable {
         h.setType(ZooDefs.OpCode.exists);
         ExistsRequest request = new ExistsRequest();
         request.setPath(serverPath);
+        // 是否注 册监听
         request.setWatch(watcher != null);
+        // 设置服务端响应的接收类
         SetDataResponse response = new SetDataResponse();
+        // 将封装的 RequestHeader、ExistsRequest、 SetDataResponse、WatchRegistration添加到发送队列
         ReplyHeader r = cnxn.submitRequest(h, request, response, wcb);
         if (r.getErr() != 0) {
             if (r.getErr() == KeeperException.Code.NONODE.intValue()) {
@@ -2246,6 +2255,7 @@ public class ZooKeeper implements AutoCloseable {
             throw KeeperException.create(KeeperException.Code.get(r.getErr()), clientPath);
         }
 
+        // 返回 exists 得到的结果(Stat 信息)
         return response.getStat().getCzxid() == -1 ? null : response.getStat();
     }
 
