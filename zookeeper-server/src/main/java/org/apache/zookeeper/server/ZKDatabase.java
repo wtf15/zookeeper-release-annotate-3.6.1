@@ -511,6 +511,7 @@ public class ZKDatabase {
      * @throws KeeperException.NoNodeException
      */
     public byte[] getData(String path, Stat stat, Watcher watcher) throws KeeperException.NoNodeException {
+        // >>>>>>>>>
         return dataTree.getData(path, stat, watcher);
     }
 
@@ -675,6 +676,7 @@ public class ZKDatabase {
                 LOG.warn("configuration znode missing (should only happen during upgrade), creating the node");
                 this.dataTree.addConfigNode();
             }
+            // >>>>>>>>> DataTree#setData
             this.dataTree.setData(
                 ZooDefs.CONFIG_NODE,
                 qv.toString().getBytes(),

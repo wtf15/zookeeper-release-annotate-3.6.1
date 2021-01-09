@@ -678,6 +678,8 @@ public class DataTree {
         nodeDataSize.addAndGet(getNodeSize(path, data) - getNodeSize(path, lastdata));
 
         updateWriteStat(path, dataBytes);
+        // 触发Watch
+        // >>>>>>>>> WatchManager#triggerWatch
         dataWatches.triggerWatch(path, EventType.NodeDataChanged);
         return s;
     }
@@ -716,6 +718,8 @@ public class DataTree {
         synchronized (n) {
             n.copyStat(stat);
             if (watcher != null) {
+                // 添加watcher
+                // >>>>>>>>> WatchManager#addWatch
                 dataWatches.addWatch(path, watcher);
             }
             data = n.data;

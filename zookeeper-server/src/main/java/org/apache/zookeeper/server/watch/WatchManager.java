@@ -64,6 +64,7 @@ public class WatchManager implements IWatchManager {
 
     @Override
     public boolean addWatch(String path, Watcher watcher) {
+        // >>>>>>>>>
         return addWatch(path, watcher, WatcherMode.DEFAULT_WATCHER_MODE);
     }
 
@@ -80,6 +81,7 @@ public class WatchManager implements IWatchManager {
             // rehash when the 4th entry is added, doubling size thereafter
             // seems like a good compromise
             list = new HashSet<>(4);
+            // 数据watcher存储到 WatchManager#watchTable属性中，路径维度
             watchTable.put(path, list);
         }
         list.add(watcher);
@@ -88,6 +90,7 @@ public class WatchManager implements IWatchManager {
         if (paths == null) {
             // cnxns typically have many watches, so use default cap here
             paths = new HashSet<>();
+            // 数据paths存储到 WatchManager#watch2Paths属性中，Watcher维度
             watch2Paths.put(watcher, paths);
         }
 
@@ -116,17 +119,23 @@ public class WatchManager implements IWatchManager {
 
     @Override
     public WatcherOrBitSet triggerWatch(String path, EventType type) {
+        // >>>>>>>>>
         return triggerWatch(path, type, null);
     }
 
     @Override
     public WatcherOrBitSet triggerWatch(String path, EventType type, WatcherOrBitSet supress) {
+        // 首先将通知状态（KeeperState）、事件类型（EventType）以及节点路径（Path）封装成一个WatchedEvent对象
         WatchedEvent e = new WatchedEvent(type, KeeperState.SyncConnected, path);
         Set<Watcher> watchers = new HashSet<>();
         PathParentIterator pathParentIterator = getPathParentIterator(path);
+        // 这个同步代码块主要做查询Watcher存入到watchers，
+        // 并从watchTable和watch2Paths中移除该路径的watcher
         synchronized (this) {
             for (String localPath : pathParentIterator.asIterable()) {
+                // 从watchTable取出对应的Watcher
                 Set<Watcher> thisWatchers = watchTable.get(localPath);
+                // 如果没有找到Watcher，说明没有客户端在这个数据节点上注册过Watcher
                 if (thisWatchers == null || thisWatchers.isEmpty()) {
                     continue;
                 }
@@ -165,6 +174,9 @@ public class WatchManager implements IWatchManager {
             if (supress != null && supress.contains(w)) {
                 continue;
             }
+            // watcher调用，这里的e对象里只有通知状态（KeeperState）、事件类型（EventType）以及节点路径（Path）
+            // 没有修改过后的新值也没有老的值
+            // >>>>>>>>> ServerCnxn#process
             w.process(e);
         }
 

@@ -682,6 +682,7 @@ public class NIOServerCnxn extends ServerCnxn {
      */
     @Override
     public void process(WatchedEvent event) {
+        // 在请求头中标记“-1” 表明当前是一个通知
         ReplyHeader h = new ReplyHeader(ClientCnxn.NOTIFICATION_XID, -1L, 0);
         if (LOG.isTraceEnabled()) {
             ZooTrace.logTraceMessage(
@@ -691,11 +692,13 @@ public class NIOServerCnxn extends ServerCnxn {
         }
 
         // Convert WatchedEvent to a type that can be sent over the wire
+        // 将WatchedEvent包装成WatcherEvent，以便进行网络传输序列化
         WatcherEvent e = event.getWrapper();
 
         // The last parameter OpCode here is used to select the response cache.
         // Passing OpCode.error (with a value of -1) means we don't care, as we don't need
         // response cache on delivering watcher events.
+        // 向客户端发送该通知
         sendResponse(h, e, "notification", null, null, ZooDefs.OpCode.error);
     }
 

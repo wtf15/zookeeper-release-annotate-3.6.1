@@ -365,6 +365,7 @@ public class FinalRequestProcessor implements RequestProcessor {
                 GetDataRequest getDataRequest = new GetDataRequest();
                 ByteBufferInputStream.byteBuffer2Record(request.request, getDataRequest);
                 path = getDataRequest.getPath();
+                // >>>>>>>>>
                 rsp = handleGetDataRequest(getDataRequest, cnxn, request.authInfo);
                 requestPathMetricsCollector.registerRequest(request.type, path);
                 break;
@@ -633,6 +634,7 @@ public class FinalRequestProcessor implements RequestProcessor {
         return new GetChildrenResponse(children);
     }
 
+    // ServerCnxn 实现Watcher接口，其子类NIOServerCnxn、NettyServerCnxn实现了process方法
     private Record handleGetDataRequest(Record request, ServerCnxn cnxn, List<Id> authInfo) throws KeeperException, IOException {
         GetDataRequest getDataRequest = (GetDataRequest) request;
         String path = getDataRequest.getPath();
@@ -642,6 +644,9 @@ public class FinalRequestProcessor implements RequestProcessor {
         }
         zks.checkACL(cnxn, zks.getZKDatabase().aclForNode(n), ZooDefs.Perms.READ, authInfo, path, null);
         Stat stat = new Stat();
+        // 这里根据客户端设置的是否有watch变量来传入watcher对象,
+        // 如果getDataRequest.getWatch()为true，则将ServerCnxn传进去（ServerCnxn代表客户端和服务端的连接）
+        // >>>>>>>>>
         byte[] b = zks.getZKDatabase().getData(path, stat, getDataRequest.getWatch() ? cnxn : null);
         return new GetDataResponse(b, stat);
     }

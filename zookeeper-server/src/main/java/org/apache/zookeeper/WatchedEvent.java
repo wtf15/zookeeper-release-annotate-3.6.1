@@ -32,8 +32,11 @@ import org.apache.zookeeper.proto.WatcherEvent;
 @InterfaceAudience.Public
 public class WatchedEvent {
 
+    // 通知状态
     private final KeeperState keeperState;
+    // 事件类型
     private final EventType eventType;
+    // 节点路径
     private String path;
 
     /**
@@ -74,6 +77,7 @@ public class WatchedEvent {
     /**
      *  Convert WatchedEvent to type that can be sent over network
      */
+    // 转化为WatcherEvent，WatcherEvent实现了序列化，可以进行网络传输
     public WatcherEvent getWrapper() {
         return new WatcherEvent(eventType.getIntValue(), keeperState.getIntValue(), path);
     }

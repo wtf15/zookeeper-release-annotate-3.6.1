@@ -521,6 +521,8 @@ public class ZooKeeper implements AutoCloseable {
          * @see org.apache.zookeeper.ClientWatchManager#materialize(Event.KeeperState,
          *                                                        Event.EventType, java.lang.String)
          */
+        // 客户端在识别出事件类型EventType后，会从相应的Watcher存储（即dataWatches、existWatches或childWatches中的一个或多个）
+        // 中获取Watcher并去除对应的Watcher
         @Override
         public Set<Watcher> materialize(
             Watcher.Event.KeeperState state,
@@ -574,6 +576,7 @@ public class ZooKeeper implements AutoCloseable {
                 return result;
             case NodeDataChanged:
             case NodeCreated:
+                // 从之前注册的ZKWatcherManager中获取到所有该路径的watcher
                 synchronized (dataWatches) {
                     addTo(dataWatches.remove(clientPath), result);
                 }
@@ -698,6 +701,7 @@ public class ZooKeeper implements AutoCloseable {
     class DataWatchRegistration extends WatchRegistration {
 
         public DataWatchRegistration(Watcher watcher, String clientPath) {
+            // >>>>>>>>>
             super(watcher, clientPath);
         }
 
@@ -814,6 +818,7 @@ public class ZooKeeper implements AutoCloseable {
      *             if an invalid chroot path is specified
      */
     public ZooKeeper(String connectString, int sessionTimeout, Watcher watcher) throws IOException {
+        // >>>>>>>>>
         this(connectString, sessionTimeout, watcher, false);
     }
 
@@ -1012,13 +1017,14 @@ public class ZooKeeper implements AutoCloseable {
             clientConfig = new ZKClientConfig();
         }
         this.clientConfig = clientConfig;
+        // new 一个 ZKWatchManager 对象
         watchManager = defaultWatchManager();
         // 在这里将 watcher 设置到 ZKWatchManager
         watchManager.defaultWatcher = watcher;
         ConnectStringParser connectStringParser = new ConnectStringParser(connectString);
         hostProvider = aHostProvider;
 
-        // 初始化了 ClientCnxn，并且调用 cnxn.start() 方法
+        // 初始化了 ClientCnxn
         // >>>>>>>>>
         cnxn = createConnection(
             connectStringParser.getChrootPath(),
@@ -1029,6 +1035,7 @@ public class ZooKeeper implements AutoCloseable {
             getClientCnxnSocket(),
             canBeReadOnly);
 
+        // 启动两个在创建ClientCnxn时初始化的两个 SendThread、EventThread 线程
         // >>>>>>>>>
         cnxn.start();
     }
@@ -2342,6 +2349,8 @@ public class ZooKeeper implements AutoCloseable {
         // the watch contains the un-chroot path
         WatchRegistration wcb = null;
         if (watcher != null) {
+            // 封装一个WatcherRegistration的对象，保存节点路径和Watcher的对应关系
+            // >>>>>>>>>
             wcb = new DataWatchRegistration(watcher, clientPath);
         }
 
@@ -2351,8 +2360,10 @@ public class ZooKeeper implements AutoCloseable {
         h.setType(ZooDefs.OpCode.getData);
         GetDataRequest request = new GetDataRequest();
         request.setPath(serverPath);
+        // 标记是否有watcher
         request.setWatch(watcher != null);
         GetDataResponse response = new GetDataResponse();
+        // >>>>>>>>>
         ReplyHeader r = cnxn.submitRequest(h, request, response, wcb);
         if (r.getErr() != 0) {
             throw KeeperException.create(KeeperException.Code.get(r.getErr()), clientPath);

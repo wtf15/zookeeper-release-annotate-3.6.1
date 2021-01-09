@@ -185,6 +185,7 @@ public class ClientCnxn {
 
     final SendThread sendThread;
 
+    // 是zk客户端用于处理服务端通知事件的线程
     final EventThread eventThread;
 
     /**
@@ -319,9 +320,11 @@ public class ClientCnxn {
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 BinaryOutputArchive boa = BinaryOutputArchive.getArchive(baos);
                 boa.writeInt(-1, "len"); // We'll fill this in later
+                // 序列化header
                 if (requestHeader != null) {
                     requestHeader.serialize(boa, "header");
                 }
+                // 序列化request
                 if (request instanceof ConnectRequest) {
                     request.serialize(boa, "connect");
                     // append "am-I-allowed-to-be-readonly" flag
@@ -441,13 +444,16 @@ public class ClientCnxn {
         readTimeout = sessionTimeout * 2 / 3;
         readOnly = canBeReadOnly;
 
+        // 初始化 SendThread
         sendThread = new SendThread(clientCnxnSocket);
+        // 初始化 EventThread
         eventThread = new EventThread();
         this.clientConfig = zooKeeper.getClientConfig();
         initRequestTimeout();
     }
 
     public void start() {
+        // 启动两个线程
         sendThread.start();
         eventThread.start();
     }
@@ -495,6 +501,7 @@ public class ClientCnxn {
         }
 
         public void queueEvent(WatchedEvent event) {
+            // >>>>>>>>>
             queueEvent(event, null);
         }
 
@@ -506,6 +513,10 @@ public class ClientCnxn {
             final Set<Watcher> watchers;
             if (materializedWatchers == null) {
                 // materialize the watchers based on the event
+                // 客户端在识别出事件类型EventType后，
+                // 会从相应的Watcher存储（即dataWatches、existWatches或childWatches中的一个或多个）
+                // 中获取Watcher并去除对应的Watcher
+                // >>>>>>>>>
                 watchers = watcher.materialize(event.getState(), event.getType(), event.getPath());
             } else {
                 watchers = new HashSet<Watcher>();
@@ -513,6 +524,8 @@ public class ClientCnxn {
             }
             WatcherSetEventPair pair = new WatcherSetEventPair(watchers, event);
             // queue the pair (watch set & event) for later processing
+            // 放入waitingEvents队列，此队列是一个待处理的Watcher队列
+            // EventThread#run会对该队列不断的进行处理
             waitingEvents.add(pair);
         }
 
@@ -544,11 +557,15 @@ public class ClientCnxn {
         public void run() {
             try {
                 isRunning = true;
+                // 不断循环
                 while (true) {
+                    // 从阻塞队列waitingEvents中取出Watcher
                     Object event = waitingEvents.take();
                     if (event == eventOfDeath) {
                         wasKilled = true;
                     } else {
+                        // 实现Watcher的回调
+                        // >>>>>>>>>
                         processEvent(event);
                     }
                     if (wasKilled) {
@@ -574,6 +591,7 @@ public class ClientCnxn {
                     WatcherSetEventPair pair = (WatcherSetEventPair) event;
                     for (Watcher watcher : pair.watchers) {
                         try {
+                            // 这里的watcher就是客户端传入的watcher，里面有真正的回调逻辑代码
                             watcher.process(pair.event);
                         } catch (Throwable t) {
                             LOG.error("Error while calling watcher ", t);
@@ -883,13 +901,17 @@ public class ClientCnxn {
                     eventThread.queueEventOfDeath();
                 }
               return;
+            // 如果响应头中replyHdr.getXid()为 -1，说明这是一个通知类型的响应
             case NOTIFICATION_XID:
                 LOG.debug("Got notification session id: 0x{}",
                     Long.toHexString(sessionId));
+                // 反序列化，将字节流转化为WatcherEvent
                 WatcherEvent event = new WatcherEvent();
                 event.deserialize(bbia, "response");
 
                 // convert from a server path to a client path
+                // 如果客户端设置了chrootPath属性，需要对服务端传来的完整的节点路径进行chrootPath处理
+                // 生成客户端的一个相对节点路径
                 if (chrootPath != null) {
                     String serverPath = event.getPath();
                     if (serverPath.compareTo(chrootPath) == 0) {
@@ -902,8 +924,11 @@ public class ClientCnxn {
                      }
                 }
 
+                // 还原WatchedEvent
                 WatchedEvent we = new WatchedEvent(event);
                 LOG.debug("Got {} for session id 0x{}", we, Long.toHexString(sessionId));
+                // 将WatchedEvent对象交给eventThread线程，在下一个轮询周期中进行Watcher回调
+                // >>>>>>>>>
                 eventThread.queueEvent(we);
                 return;
             default:
@@ -1531,6 +1556,7 @@ public class ClientCnxn {
         Record request,
         Record response,
         WatchRegistration watchRegistration) throws InterruptedException {
+        // >>>>>>>>>
         return submitRequest(h, request, response, watchRegistration, null);
     }
 
@@ -1541,6 +1567,7 @@ public class ClientCnxn {
         WatchRegistration watchRegistration,
         WatchDeregistration watchDeregistration) throws InterruptedException {
         ReplyHeader r = new ReplyHeader();
+        // >>>>>>>>>
         Packet packet = queuePacket(
             h,
             r,
@@ -1633,6 +1660,7 @@ public class ClientCnxn {
         // Note that we do not generate the Xid for the packet yet. It is
         // generated later at send-time, by an implementation of ClientCnxnSocket::doIO(),
         // where the packet is actually sent.
+        // 任何传输的对象都包装成Packet对象
         packet = new Packet(h, r, request, response, watchRegistration);
         packet.cb = cb;
         packet.ctx = ctx;
@@ -1652,6 +1680,7 @@ public class ClientCnxn {
                 if (h.getType() == OpCode.closeSession) {
                     closing = true;
                 }
+                // 放入发送队列中，等待发送
                 outgoingQueue.add(packet);
             }
         }
