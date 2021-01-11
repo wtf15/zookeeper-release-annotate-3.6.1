@@ -94,6 +94,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                     updateLastHeard();
                     initialized = true;
                 } else {
+                    // >>>>>>>>>
                     sendThread.readResponse(incomingBuffer);
                     lenBuffer.clear();
                     incomingBuffer = lenBuffer;
@@ -118,10 +119,14 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                     // >>>>>>>>>
                     p.createBB();
                 }
+                // 将数据写入Channel
                 sock.write(p.bb);
+                // p.bb中如果没有内容 则表示发送成功
                 if (!p.bb.hasRemaining()) {
                     sentCount.getAndIncrement();
+                    // 将该P从队列中移除
                     outgoingQueue.removeFirstOccurrence(p);
+                    // 如果该事件不是连接事件，不是ping事件，不是认证事件，则将他加入pending队列中
                     if (p.requestHeader != null
                         && p.requestHeader.getType() != OpCode.ping
                         && p.requestHeader.getType() != OpCode.auth) {
@@ -258,17 +263,24 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
      * @throws IOException
      */
     void registerAndConnect(SocketChannel sock, InetSocketAddress addr) throws IOException {
+        // 将socket注册到selector中
         sockKey = sock.register(selector, SelectionKey.OP_CONNECT);
+        // socket连接服务器
         boolean immediateConnect = sock.connect(addr);
         if (immediateConnect) {
+            // 初始化连接事件
+            // >>>>>>>>>
             sendThread.primeConnection();
         }
     }
 
     @Override
     void connect(InetSocketAddress addr) throws IOException {
+        // 创建一个非阻塞空SocketChannel
         SocketChannel sock = createSock();
         try {
+            // 注册并且连接sock到addr
+            // >>>>>>>>>
             registerAndConnect(sock, addr);
         } catch (IOException e) {
             LOG.error("Unable to open socket to {}", addr);
@@ -342,18 +354,23 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
         updateNow();
         for (SelectionKey k : selected) {
             SocketChannel sc = ((SocketChannel) k.channel());
+            // 如果之前连接没有立马连上，则在这里处理OP_CONNECT事件
             if ((k.readyOps() & SelectionKey.OP_CONNECT) != 0) {
                 if (sc.finishConnect()) {
                     updateLastSendAndHeard();
                     updateSocketAddresses();
                     sendThread.primeConnection();
                 }
+            // 如果读写就位，则处理之
             } else if ((k.readyOps() & (SelectionKey.OP_READ | SelectionKey.OP_WRITE)) != 0) {
+                // >>>>>>>>>
                 doIO(pendingQueue, cnxn);
             }
         }
         if (sendThread.getZkState().isConnected()) {
+            // 找到连接Packet并且将他放到队列头
             if (findSendablePacket(outgoingQueue, sendThread.tunnelAuthInProgress()) != null) {
+                // 将要Channecl设置为可读
                 enableWrite();
             }
         }

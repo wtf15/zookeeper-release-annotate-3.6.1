@@ -1013,8 +1013,11 @@ public class ClientCnxn {
                 "Socket connection established, initiating session, client: {}, server: {}",
                 clientCnxnSocket.getLocalSocketAddress(),
                 clientCnxnSocket.getRemoteSocketAddress());
+            // 设置为非首次连接
             isFirstConnect = false;
+            // 客户端默认sessionid为0
             long sessId = (seenRwServerBefore) ? sessionId : 0;
+            // 创建连接ConnectRequest lastZxid 代表最新一次的节点ZXID
             ConnectRequest conReq = new ConnectRequest(0, lastZxid, sessionTimeout, sessId, sessionPasswd);
             // We add backwards since we are pushing into the front
             // Only send if there's a pending watch
@@ -1083,6 +1086,7 @@ public class ClientCnxn {
                         }
                         RequestHeader header = new RequestHeader(ClientCnxn.SET_WATCHES_XID, opcode);
                         Packet packet = new Packet(header, new ReplyHeader(), record, null, null);
+                        // 组合成通讯层的Packet对象，添加到发送队列
                         outgoingQueue.addFirst(packet);
                     }
                 }
@@ -1147,6 +1151,7 @@ public class ClientCnxn {
                     LOG.warn("Unexpected exception", e);
                 }
             }
+            // state状态设置为连接
             state = States.CONNECTING;
 
             String hostPort = addr.getHostString() + ":" + addr.getPort();
@@ -1171,8 +1176,11 @@ public class ClientCnxn {
                     saslLoginFailed = true;
                 }
             }
+            // 写连接日志
             logStartConnect(addr);
 
+            // 连接Socket
+            // >>>>>>>>>
             clientCnxnSocket.connect(addr);
         }
 
@@ -1194,18 +1202,24 @@ public class ClientCnxn {
             InetSocketAddress serverAddress = null;
             while (state.isAlive()) {
                 try {
+                    // 如果还没连上，则启动连接程序
                     if (!clientCnxnSocket.isConnected()) {
                         // don't re-establish connection if we are closing
                         if (closing) {
                             break;
                         }
+                        // 获取一个服务器地址
                         if (rwServerAddress != null) {
                             serverAddress = rwServerAddress;
                             rwServerAddress = null;
                         } else {
                             serverAddress = hostProvider.next(1000);
                         }
+                        // 创建TCP连接，这个方法后面会构造ConnectRequest请求，
+                        // 将该请求包装成网络I/O层的Packet对象，放入请求发送队列outgoingQueue中去
+                        // >>>>>>>>>
                         startConnect(serverAddress);
+                        // 更新Socket最后一次发送以及听到消息的时间
                         clientCnxnSocket.updateLastSendAndHeard();
                     }
 
@@ -1242,11 +1256,14 @@ public class ClientCnxn {
                                 }
                             }
                         }
+                        // 下一次超时时间
                         to = readTimeout - clientCnxnSocket.getIdleRecv();
                     } else {
+                        // 如果还没连接上 重置当前剩余可连接时间
                         to = connectTimeout - clientCnxnSocket.getIdleRecv();
                     }
 
+                    // 连接超时
                     if (to <= 0) {
                         String warnInfo = String.format(
                             "Client session timed out, have not heard from server in %dms for session id 0x%s",
@@ -1262,6 +1279,7 @@ public class ClientCnxn {
                                              - clientCnxnSocket.getIdleSend()
                                              - ((clientCnxnSocket.getIdleSend() > 1000) ? 1000 : 0);
                         //send a ping request either time is due or no packet sent out within MAX_SEND_PING_INTERVAL
+                        // 判断是否需要发送Ping心跳包
                         if (timeToNextPing <= 0 || clientCnxnSocket.getIdleSend() > MAX_SEND_PING_INTERVAL) {
                             sendPing();
                             clientCnxnSocket.updateLastSend();
@@ -1285,6 +1303,8 @@ public class ClientCnxn {
                         to = Math.min(to, pingRwTimeout - idlePingRwServer);
                     }
 
+                    // 发送请求
+                    // >>>>>>>>>
                     clientCnxnSocket.doTransport(to, pendingQueue, ClientCnxn.this);
                 } catch (Throwable e) {
                     if (closing) {

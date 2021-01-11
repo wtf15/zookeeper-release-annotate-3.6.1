@@ -1019,13 +1019,16 @@ public class ZooKeeper implements AutoCloseable {
         this.clientConfig = clientConfig;
         // new 一个 ZKWatchManager 对象
         watchManager = defaultWatchManager();
-        // 在这里将 watcher 设置到 ZKWatchManager
+        // 在这里将 watcher 设置到 ZKWatchManager的默认Watcher中
         watchManager.defaultWatcher = watcher;
+        // 包装地址，可以传多个（以逗号隔开）
         ConnectStringParser connectStringParser = new ConnectStringParser(connectString);
-        // 构造服务器地址列表管理器
+        // 构造服务器地址列表管理器，打断乱顺序
         hostProvider = aHostProvider;
 
         // 创建并初始化客户端网络连接 ClientCnxn
+        // getClientCnxnSocket() 获取一个socket连接对象
+        // 初始化了两个非常重要的线程SendThread与EventThread
         // >>>>>>>>>
         cnxn = createConnection(
             connectStringParser.getChrootPath(),
