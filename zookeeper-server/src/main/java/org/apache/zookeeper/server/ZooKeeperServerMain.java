@@ -64,6 +64,7 @@ public class ZooKeeperServerMain {
     public static void main(String[] args) {
         ZooKeeperServerMain main = new ZooKeeperServerMain();
         try {
+            // >>>>>>>>>
             main.initializeAndRun(args);
         } catch (IllegalArgumentException e) {
             LOG.error("Invalid arguments, exiting abnormally", e);
@@ -104,11 +105,13 @@ public class ZooKeeperServerMain {
 
         ServerConfig config = new ServerConfig();
         if (args.length == 1) {
+            // 对配置文件zoo.cfg进行解析
             config.parse(args[0]);
         } else {
             config.parse(args);
         }
 
+        // >>>>>>>>>
         runFromConfig(config);
     }
 

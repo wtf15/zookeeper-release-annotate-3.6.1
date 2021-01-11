@@ -962,6 +962,7 @@ public class QuorumCnxManager {
                         .collect(Collectors.toList());
 
                 ExecutorService executor = Executors.newFixedThreadPool(addresses.size());
+                // >>>>>>>>> QuorumCnxManager.Listener.ListenerHandler#run
                 listenerHandlers.forEach(executor::submit);
 
                 try {

@@ -1305,6 +1305,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
             if (listener != null) {
                 // 启动已绑定端口的选举线程，等待集群中其他机器连接
                 // Listener的启动标记着集群中的各个节点之间有了两两之间建立通信能力
+                // >>>>>>>>> QuorumCnxManager.Listener#run
                 listener.start();
                 // 实例化领导者选举的算法
                 // >>>>>>>>>
@@ -1396,7 +1397,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
                 // 判断当前节点的状态
                 switch (getPeerState()) {
                 // 如果是LOOKING，则进入选举流程，一开始在程序启动的阶段,所有的节点的默认值都是Looking
-                // 在这个分之中会进行真正的leader选举工作
+                // 在这个分支中会进行真正的leader选举工作
                 case LOOKING:
                     LOG.info("LOOKING");
                     ServerMetrics.getMetrics().LOOKING_COUNT.add(1);

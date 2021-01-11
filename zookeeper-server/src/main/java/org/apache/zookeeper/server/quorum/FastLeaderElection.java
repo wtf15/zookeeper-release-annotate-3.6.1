@@ -954,7 +954,7 @@ public class FastLeaderElection implements Election {
              * if v.electionEpoch == logicalclock. The current participant uses recvset to deduce on whether a majority
              * of participants has voted for it.
              */
-            // 每台服务器独有的投票箱 , 存放其他服务器投过来的票的map
+            // 每台服务器独有的投票箱, 存放其他服务器投过来的票的map
             // long类型的key (sid)标记谁给当前的server投的票   Vote类型的value 投的票
             // 收到的投票
             Map<Long, Vote> recvset = new HashMap<Long, Vote>();
